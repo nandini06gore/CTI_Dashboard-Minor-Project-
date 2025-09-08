@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Threat Intelligence Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #1a1a40;
+            --secondary-color: #270082;
+            --accent-color: #7a0bc0;
+            --danger-color: #ff6b6b;
+            --warning-color: #ffd166;
+            --success-color: #06d6a0;
+            --info-color: #118ab2;
+            --dark-bg: #0f0f1e;
+            --card-bg: #1e1e2e;
+            --text-light: #f8f9fa;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #1a1a2e 100%);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            background: rgba(26, 26, 64, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--accent-color);
+        }
+        
+        .dashboard-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            border: 1px solid rgba(122, 11, 192, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(122, 11, 192, 0.4);
+        }
+        
+        .card-header {
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+            color: white;
+            border-bottom: none;
+            font-weight: 600;
+        }
+        
+        .threat-level-high {
+            background: linear-gradient(45deg, var(--danger-color), #ff4757);
+            color: white;
+        }
+        
+        .threat-level-medium {
+            background: linear-gradient(45deg, var(--warning-color), #ff9f43);
+            color: #2c2c54;
+        }
+        
+        .threat-level-low {
+            background: linear-gradient(45deg, var(--success-color), #1dd1a1);
+            color: white;
+        }
+        
+        .search-box {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--accent-color);
+            color: white;
+        }
+        
+        .search-box:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.2rem rgba(122, 11, 192, 0.25);
+            color: white;
+        }
+        
+        .threat-feed {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .threat-item {
+            border-left: 4px solid var(--info-color);
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(30, 30, 46, 0.8);
+            border-radius: 0 8px 8px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .threat-item:hover {
+            background: rgba(122, 11, 192, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .metric-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .btn-cti {
+            background: linear-gradient(45deg, var(--secondary-color), var(--accent-color));
+            border: none;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-cti:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 11, 192, 0.4);
+            color: white;
+        }
+        
+        .timeline {
+            border-left: 2px solid var(--accent-color);
+            padding-left: 20px;
+            margin-left: 10px;
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .timeline-item:before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-alt me-2"></i>
+                Cyber Threat Intelligence Dashboard
+            </a>
+            <div class="d-flex">
+                <span class="badge bg-warning text-dark me-3">
+                    <i class="fas fa-sync-alt me-1"></i> Live
+                </span>
+                <span class="text-light">Last updated: <span id="last-update">Just now</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <div class="row">
+            <!-- Left Sidebar - Metrics -->
+            <div class="col-lg-3">
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Threat Metrics</div>
+                    <div class="card-body">
+                        <div class="metric-card threat-level-high">
+                            <i class="fas fa-skull-crossbones fa-2x"></i>
+                            <div class="metric-value" id="high-threats">27</div>
+                            <div>High Priority Threats</div>
+                        </div>
+                        <div class="metric-card threat-level-medium">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            <div class="metric-value" id="medium-threats">43</div>
+                            <div>Medium Threats</div>
+                        </div>
+                        <div class="metric-card threat-level-low">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                            <div class="metric-value" id="low-threats">89</div>
+                            <div>Low Risk Indicators</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Quick Actions</div>
+                    <div class="card-body">
+                        <button class="btn btn-cti w-100 mb-2" onclick="exportFullReport()">
+                            <i class="fas fa-download me-2"></i>Export Full Report
+                        </button>
+                        <button class="btn btn-outline-light w-100 mb-2" onclick="refreshData()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh Data
+                        </button>
+                        <button class="btn btn-outline-info w-100" onclick="showSettings()">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-lg-6">
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Threat Lookup</div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control search-box" id="lookup-input" 
+                                   placeholder="Enter IP, Domain, or Hash..." onkeypress="handleKeyPress(event)">
+                            <button class="btn btn-cti" type="button" onclick="lookupThreat()">
+                                <i class="fas fa-search"></i> Analyze
+                            </button>
+                        </div>
+                        <div id="lookup-results" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Real-time Threat Feed</div>
+                    <div class="card-body">
+                        <div class="threat-feed" id="threat-feed">
+                            <!-- Threat items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar - Charts -->
+            <div class="col-lg-3">
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Threat Distribution</div>
+                    <div class="card-body">
+                        <canvas id="threatChart" width="300" height="300"></canvas>
+                    </div>
+                </div>
+
+                <div class="dashboard-card mb-4">
+                    <div class="card-header">Trend Analysis</div>
+                    <div class="card-body">
+                        <canvas id="trendChart" width="300" height="200"></canvas>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">Recent Activity</div>
+                    <div class="card-body">
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <small class="text-muted">2 min ago</small>
+                                <p>New malware signature detected: Trojan.Win32.Generic</p>
+                            </div>
+                            <div class="timeline-item">
+                                <small class="text-muted">5 min ago</small>
+                                <p>IP 192.168.1.100 flagged by AbuseIPDB</p>
+                            </div>
+                            <div class="timeline-item">
+                                <small class="text-muted">12 min ago</small>
+                                <p>VirusTotal scan completed for sample #4572</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for demonstration
+        const mockThreatData = {
+            high: 27,
+            medium: 43,
+            low: 89,
+            trends: [65, 59, 80, 81, 56, 55, 72, 68, 75, 80, 78, 82],
+            threats: [
+                {
+                    type: 'Malware',
+                    severity: 'high',
+                    description: 'Trojan.Win32.Generic detected',
+                    source: 'VirusTotal',
+                    timestamp: '2 minutes ago',
+                    ioc: 'SHA256: a1b2c3d4e5f6...'
+                },
+                {
+                    type: 'Phishing',
+                    severity: 'medium',
+                    description: 'Suspicious domain: fake-login.com',
+                    source: 'AbuseIPDB',
+                    timestamp: '5 minutes ago',
+                    ioc: 'Domain: fake-login.com'
+                },
+                {
+                    type: 'Botnet',
+                    severity: 'high',
+                    description: 'C2 server activity detected',
+                    source: 'ThreatConnect',
+                    timestamp: '8 minutes ago',
+                    ioc: 'IP: 185.220.101.34'
+                },
+                {
+                    type: 'Exploit',
+                    severity: 'medium',
+                    description: 'CVE-2023-1234 vulnerability scan',
+                    source: 'NVD',
+                    timestamp: '15 minutes ago',
+                    ioc: 'CVE-2023-1234'
+                }
+            ]
+        };
+
+        let currentLookupResult = null;
+
+        // Initialize charts
+        function initializeCharts() {
+            // Threat Distribution Chart
+            const threatCtx = document.getElementById('threatChart').getContext('2d');
+            new Chart(threatCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [mockThreatData.high, mockThreatData.medium, mockThreatData.low],
+                        backgroundColor: [
+                            '#ff6b6b',
+                            '#ffd166',
+                            '#06d6a0'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#f8f9fa'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Trend Analysis Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Threat Count',
+                        data: mockThreatData.trends,
+                        borderColor: '#7a0bc0',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(122, 11, 192, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#f8f9fa'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#f8f9fa'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#f8f9fa'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Populate threat feed
+        function populateThreatFeed() {
+            const feedContainer = document.getElementById('threat-feed');
+            feedContainer.innerHTML = '';
+            
+            mockThreatData.threats.forEach(threat => {
+                const threatItem = document.createElement('div');
+                threatItem.className = 'threat-item';
+                threatItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge ${getSeverityClass(threat.severity)} me-2">${threat.severity.toUpperCase()}</span>
+                            <strong>${threat.type}</strong>
+                        </div>
+                        <small class="text-muted">${threat.timestamp}</small>
+                    </div>
+                    <div class="mt-2">${threat.description}</div>
+                    <div class="mt-1 small">
+                        <span class="text-info">Source: ${threat.source}</span> | 
+                        <span class="text-warning">IOC: ${threat.ioc}</span>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-light me-1" onclick="tagThreat('${threat.ioc}')">
+                            <i class="fas fa-tag"></i> Tag
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="exportSingleThreat(${JSON.stringify(threat).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                `;
+                feedContainer.appendChild(threatItem);
+            });
+        }
+
+        function getSeverityClass(severity) {
+            switch(severity) {
+                case 'high': return 'bg-danger';
+                case 'medium': return 'bg-warning text-dark';
+                case 'low': return 'bg-success';
+                default: return 'bg-secondary';
+            }
+        }
+
+        // Threat lookup functionality
+        function lookupThreat() {
+            const input = document.getElementById('lookup-input').value.trim();
+            if (!input) return;
+
+            const resultsContainer = document.getElementById('lookup-results');
+            resultsContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-info"></div><p class="mt-2">Analyzing threat...</p></div>';
+
+            // Simulate API call delay
+            setTimeout(() => {
+                currentLookupResult = generateMockLookupResults(input);
+                displayLookupResults(currentLookupResult);
+            }, 1500);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                lookupThreat();
+            }
+        }
+
+        function generateMockLookupResults(input) {
+            // Simple pattern detection for mock results
+            if (input.includes('.')) {
+                if (input.includes('@') || input.includes('http')) {
+                    return {
+                        type: 'Domain/URL',
+                        input: input,
+                        risk: 'Medium',
+                        confidence: 85,
+                        details: 'Suspicious domain pattern detected. Multiple threat intelligence sources report phishing activity.',
+                        recommendations: ['Block domain in firewall', 'Add to blacklist', 'Notify security team'],
+                        sources: ['VirusTotal', 'AbuseIPDB', 'Cisco Talos']
+                    };
+                } else {
+                    return {
+                        type: 'IP Address',
+                        input: input,
+                        risk: 'High',
+                        confidence: 92,
+                        details: 'IP address associated with known botnet activity and multiple brute force attempts.',
+                        recommendations: ['Immediate block required', 'Review firewall logs', 'Scan internal systems'],
+                        sources: ['AbuseIPDB', 'FireHOL', 'AlienVault OTX']
+                    };
+                }
+            } else if (input.length === 64) {
+                return {
+                    type: 'File Hash',
+                    input: input,
+                    risk: 'High',
+                    confidence: 98,
+                    details: 'Known malware signature. Detected as Trojan.Win32.Generic by multiple antivirus engines.',
+                    recommendations: ['Quarantine file immediately', 'Scan affected systems', 'Update antivirus definitions'],
+                    sources: ['VirusTotal', 'MalwareBazaar', 'Hybrid Analysis']
+                };
+            } else {
+                return {
+                    type: 'Unknown',
+                    input: input,
+                    risk: 'Low',
+                    confidence: 45,
+                    details: 'No significant threats detected in current intelligence feeds.',
+                    recommendations: ['Monitor for future activity', 'Add to watchlist'],
+                    sources: ['VirusTotal', 'AbuseIPDB']
+                };
+            }
+        }
+
+        function displayLookupResults(result) {
+            const resultsContainer = document.getElementById('lookup-results');
+            resultsContainer.innerHTML = `
+                <div class="dashboard-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Analysis Results for: ${result.input}</span>
+                        <button class="btn btn-sm btn-cti" onclick="exportLookupResult()">
+                            <i class="fas fa-download me-1"></i> Export
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="text-center p-3 ${getRiskClass(result.risk)} rounded">
+                                    <h4>${result.risk}</h4>
+                                    <small>Risk Level</small>
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                                <p><strong>Type:</strong> ${result.type}</p>
+                                <p><strong>Confidence:</strong> ${result.confidence}%</p>
+                                <p><strong>Details:</strong> ${result.details}</p>
+                            </div>
+                        </div>
+                        
+                        <h6>Recommendations:</h6>
+                        <ul>
+                            ${result.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                        </ul>
+                        
+                        <h6>Intelligence Sources:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${result.sources.map(source => `<span class="badge bg-info">${source}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getRiskClass(risk) {
+            switch(risk.toLowerCase()) {
+                case 'high': return 'bg-danger text-white';
+                case 'medium': return 'bg-warning text-dark';
+                case 'low': return 'bg-success text-white';
+                default: return 'bg-secondary text-white';
+            }
+        }
+
+        // Export functionality
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportFullReport() {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `cti-full-report-${timestamp}.csv`;
+            
+            let csvContent = 'Cyber Threat Intelligence Report\n';
+            csvContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+            
+            // Summary
+            csvContent += 'SUMMARY\n';
+            csvContent += `High Priority Threats,${mockThreatData.high}\n`;
+            csvContent += `Medium Threats,${mockThreatData.medium}\n`;
+            csvContent += `Low Risk Indicators,${mockThreatData.low}\n\n`;
+            
+            // Threat details
+            csvContent += 'THREAT DETAILS\n';
+            csvContent += 'Type,Severity,Description,Source,Timestamp,IOC\n';
+            mockThreatData.threats.forEach(threat => {
+                csvContent += `${threat.type},${threat.severity},"${threat.description}",${threat.source},${threat.timestamp},${threat.ioc}\n`;
+            });
+            
+            // Add lookup result if available
+            if (currentLookupResult) {
+                csvContent += '\nCURRENT ANALYSIS\n';
+                csvContent += `Input,${currentLookupResult.input}\n`;
+                csvContent += `Type,${currentLookupResult.type}\n`;
+                csvContent += `Risk Level,${currentLookupResult.risk}\n`;
+                csvContent += `Confidence,${currentLookupResult.confidence}%\n`;
+                csvContent += `Details,${currentLookupResult.details}\n`;
+                csvContent += `Sources,${currentLookupResult.sources.join('; ')}\n`;
+                csvContent += 'Recommendations\n';
+                currentLookupResult.recommendations.forEach((rec, index) => {
+                    csvContent += `${index + 1},${rec}\n`;
+                });
+            }
+            
+            downloadCSV(csvContent, filename);
+        }
+
+        function exportLookupResult() {
+            if (!currentLookupResult) return;
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `cti-analysis-${currentLookupResult.input}-${timestamp}.csv`;
+            
+            let csvContent = 'Threat Analysis Report\n';
+            csvContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+            
+            csvContent += 'ANALYSIS DETAILS\n';
+            csvContent += `Input,${currentLookupResult.input}\n`;
+            csvContent += `Type,${currentLookupResult.type}\n`;
+            csvContent += `Risk Level,${currentLookupResult.risk}\n`;
+            csvContent += `Confidence,${currentLookupResult.confidence}%\n`;
+            csvContent += `Details,${currentLookupResult.details}\n`;
+            csvContent += `Sources,${currentLookupResult.sources.join('; ')}\n\n`;
+            
+            csvContent += 'RECOMMENDATIONS\n';
+            csvContent += 'Priority,Action\n';
+            currentLookupResult.recommendations.forEach((rec, index) => {
+                csvContent += `${index + 1},${rec}\n`;
+            });
+            
+            downloadCSV(csvContent, filename);
+        }
+
+        function exportSingleThreat(threat) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `cti-threat-${threat.ioc.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.csv`;
+            
+            let csvContent = 'Individual Threat Report\n';
+            csvContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+            
+            csvContent += 'THREAT DETAILS\n';
+            csvContent += 'Field,Value\n';
+            csvContent += `Type,${threat.type}\n`;
+            csvContent += `Severity,${threat.severity}\n`;
+            csvContent += `Description,${threat.description}\n`;
+            csvContent += `Source,${threat.source}\n`;
+            csvContent += `Timestamp,${threat.timestamp}\n`;
+            csvContent += `IOC,${threat.ioc}\n`;
+            
+            downloadCSV(csvContent, filename);
+        }
+
+        // Additional functionality
+        function refreshData() {
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            alert('Data refresh simulated. In a real implementation, this would pull latest threat intelligence feeds.');
+        }
+
+        function showSettings() {
+            alert('Settings panel would open here in a real implementation.');
+        }
+
+        function tagThreat(ioc) {
+            alert(`Tagging functionality for IOC: ${ioc}\nIn a real implementation, this would add tags to the threat for categorization.`);
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            populateThreatFeed();
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            
+            // Simulate live updates
+            setInterval(() => {
+                // In a real implementation, this would fetch new data from APIs
+                console.log('Simulating live data refresh...');
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
+
